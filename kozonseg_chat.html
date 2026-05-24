@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Közönség Chat</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+body{
+margin:0;
+min-height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+background:radial-gradient(circle at top,#1a2fff,#07005d,#020018);
+font-family:Arial;
+color:white;
+overflow:hidden;
+}
+.card{
+width:min(560px,92vw);
+padding:30px;
+border-radius:28px;
+background:rgba(5,0,39,.82);
+border:1px solid rgba(38,246,255,.45);
+box-shadow:0 0 40px rgba(38,246,255,.18);
+}
+h1{text-align:center}
+input,textarea{
+width:100%;
+padding:14px;
+margin-top:12px;
+border:0;
+border-radius:16px;
+font-size:18px;
+box-sizing:border-box;
+}
+textarea{height:140px;resize:none}
+button{
+width:100%;
+padding:16px;
+margin-top:14px;
+border:0;
+border-radius:16px;
+font-size:20px;
+font-weight:900;
+background:linear-gradient(#fff3a0,#ffc400,#ff8a00);
+cursor:pointer;
+}
+.info{
+margin-top:12px;
+text-align:center;
+color:#aefcff;
+font-weight:700;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+<h1>💬 Közönség Chat</h1>
+
+<input id="name" placeholder="Neved">
+<textarea id="msg" placeholder="Mit üzensz?"></textarea>
+
+<button onclick="sendMsg()">ÜZENET KÜLDÉSE</button>
+
+<div class="info" id="status"></div>
+</div>
+
+<script>
+const AUDIENCE_LIMIT=10;
+
+function getCount(){
+ return Number(localStorage.getItem('audienceMessageCount50M')||0);
+}
+
+function update(){
+ const left=Math.max(0,AUDIENCE_LIMIT-getCount());
+ document.getElementById('status').textContent=
+ left>0
+ ? 'Hátralévő üzenetek: '+left
+ : 'Elérted a limitet.';
+}
+
+function sendMsg(){
+
+ const count=getCount();
+
+ if(count>=AUDIENCE_LIMIT){
+   alert('Elfogyott az üzenet limit!');
+   return;
+ }
+
+ const msg={
+   id:Date.now()+'-'+Math.random(),
+   name:document.getElementById('name').value||'Néző',
+   text:document.getElementById('msg').value,
+   time:new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})
+ };
+
+ if(!msg.text.trim()){
+   alert('Írj üzenetet!');
+   return;
+ }
+
+ localStorage.setItem('audienceMessageCount50M',count+1);
+ 
+ const socket = io();
+ socket.emit('send_message', msg);
+
+ document.getElementById('msg').value='';
+
+ update();
+
+ alert('Üzenet elküldve!');
+}
+
+update();
+</script>
+
+</body>
+</html>

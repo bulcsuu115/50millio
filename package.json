@@ -1,0 +1,14 @@
+{
+  "name": "50-millios-jatszma-chat",
+  "version": "1.0.0",
+  "description": "50 Milliós Játszma Chat Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "socket.io": "^4.7.2"
+  }
+}
