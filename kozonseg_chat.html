@@ -70,6 +70,7 @@ font-weight:700;
 
 <script>
 const AUDIENCE_LIMIT=10;
+const socket = io();
 
 function getCount(){
  return Number(localStorage.getItem('audienceMessageCount50M')||0);
@@ -106,7 +107,6 @@ function sendMsg(){
 
  localStorage.setItem('audienceMessageCount50M',count+1);
  
- const socket = io();
  socket.emit('send_message', msg);
 
  document.getElementById('msg').value='';
