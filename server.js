@@ -66,8 +66,11 @@ io.on('connection', async (socket) => {
     });
 
     socket.on('send_message', async (data) => {
+        // Rögtön kiküldjük mindenkinek, hogy azonnal frissüljön a fal
+        io.emit('receive_message', data);
+        
         try {
-            // Elmentjük az adatbázisba
+            // Megpróbáljuk elmenteni az adatbázisba
             const newMsg = new Message({
                 id: data.id,
                 name: data.name,
@@ -75,11 +78,8 @@ io.on('connection', async (socket) => {
                 time: data.time
             });
             await newMsg.save();
-
-            // Kiküldjük mindenkinek
-            io.emit('receive_message', newMsg);
         } catch (err) {
-            console.error('Hiba az üzenet mentésekor:', err);
+            console.error('Hiba az üzenet mentésekor (MongoDb hiba):', err.message);
         }
     });
 

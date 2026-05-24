@@ -565,7 +565,7 @@ function showEndOverlay(won){
   document.body.appendChild(overlay);
   if(won){ winnerMoneyParty(); setTimeout(winnerFireworks,1200); }
 }
-window.restartGame=function(){localStorage.removeItem('audienceMessageCount50M');current=0;bank=50;placed=[0,0,0,0];checking=false;gameEnded=false;results=[];chickenIndex=null;usedHelp={half:false,phone:false,chicken:false,audience:false};partEls().forEach(p=>p.classList.remove('used'));const overlay=document.querySelector('.endOverlay');if(overlay)overlay.remove();setGameState({chatLocked:false,gameEnded:false,currentQuestion:0});load()}
+window.restartGame=function(){localStorage.removeItem('audienceMessageCount50M');current=0;bank=50;placed=[0,0,0,0];checking=false;gameEnded=false;results=[];chickenIndex=null;usedHelp={half:false,phone:false,chicken:false,audience:false};partEls().forEach(p=>p.classList.remove('used'));const overlay=document.querySelector('.endOverlay');if(overlay)overlay.remove();setGameState({chatLocked:false,gameEnded:false,currentQuestion:0}); socket.emit('reset_chat'); load()}
 function markHelpUsed(name,index){usedHelp[name]=true;partEls()[index].classList.add('used')}
 window.half=function(){if(checking||usedHelp.half)return;markHelpUsed('half',0);let q=questions[current],removed=0;answerEls().forEach((a,i)=>{if(i!==q.correct&&removed<2){a.classList.add('hiddenAnswer');removed++}});showToast('Felezés aktiválva - egyszer használható')}
 window.phone=function(){if(checking||usedHelp.phone)return;markHelpUsed('phone',1);showToast('Telefon: szerintem '+questions[current].a[questions[current].correct]+' a jó válasz')}
@@ -594,7 +594,9 @@ socket.on('chat_reset', () => {
   showToast('Chat resetelve az admin által!');
 });
 
-addMsg({name:'Műsorvezető',text:'Élő adás indul! A közönség chathez nyomd meg a 💬 segítséget, és nyisd meg a kapott oldalt.',time:'LIVE'});load();
+addMsg({name:'Műsorvezető',text:'Élő adás indul! A közönség chathez nyomd meg a 💬 segítséget, és nyisd meg a kapott oldalt.',time:'LIVE'});
+socket.emit('reset_chat'); // F5 esetén törli az eddigi chatet (csak a főoldalon)
+load();
 }
 
 
