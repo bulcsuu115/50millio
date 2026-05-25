@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>50 Milliós Játszma - Smooth + Chat limit</title>
+<title>50 Milliós Játszma</title>
+<script src="/socket.io/socket.io.js"></script>
 <style>
 :root{
   --deep:#050027;--blue:#07108c;--cyan:#26f6ff;--gold:#ffd76a;--orange:#ff9e2c;--red:#ef233c;--green:#10e26f;--glass:rgba(255,255,255,.10);
@@ -362,8 +363,6 @@ function adminReset(){
 <script>
 const isAudience=new URLSearchParams(location.search).has('audience');
 const app=document.getElementById('app');
-const channelName='otvenmillios-chat-v3';
-const bc=('BroadcastChannel' in window)?new BroadcastChannel(channelName):null;
 const seenMessages=new Set();
 function getGameState(){try{return JSON.parse(localStorage.getItem('gameState50M')||'{}')}catch(e){return {}}}
 function setGameState(data){try{localStorage.setItem('gameState50M',JSON.stringify({...getGameState(),...data,updated:Date.now()}));}catch(e){}}
@@ -371,6 +370,10 @@ const AUDIENCE_LIMIT=10;
 const CHAT_RESET_PASSWORD='admin123';
 function getAudienceCount(){return Number(localStorage.getItem('audienceMessageCount50M')||0)}
 function setAudienceCount(n){localStorage.setItem('audienceMessageCount50M',String(n))}
+
+// Socket.io csatlakozás
+const socket = io();
+
 function sendChat(name,text){
   const state=getGameState();
   if(state.chatLocked)return {ok:false,reason:'locked'};
@@ -378,20 +381,19 @@ function sendChat(name,text){
   if(count>=AUDIENCE_LIMIT)return {ok:false,reason:'limit'};
   const msg={id:Date.now()+'-'+Math.random().toString(16).slice(2),name:name||'Néző',text:text||'',time:new Date().toLocaleTimeString('hu-HU',{hour:'2-digit',minute:'2-digit'})};
   setAudienceCount(count+1);
-  try{localStorage.setItem('lastAudienceMsg',JSON.stringify(msg));}catch(e){};
-  if(bc)bc.postMessage({type:'chat',msg});
+  socket.emit('send_message', msg);
   return {ok:true,count:count+1};
 }
 function showToast(t){const el=document.getElementById('toast');if(!el)return;el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2200)}
 if(isAudience){
   app.innerHTML=`<div class="audiencePage"><div class="audCard"><h1>💬 Közönség üzenőfal</h1><input id="audName" placeholder="Neved"><textarea id="audText" placeholder="Mit üzensz a játékosnak?"></textarea><button id="audSendBtn" class="audBtn" onclick="audSend()">ÜZENET KÜLDÉSE</button><div id="audStatus" class="audStatus"></div><div class="audHint">Egy néző összesen 10 üzenetet küldhet erről az eszközről. Ha a kérdésre már válaszoltak, új üzenet nem küldhető.</div></div></div><button class="adminResetBtn" title="Admin reset" onclick="adminResetChat()">•</button>`;
-  window.adminResetChat=function(){const pw=prompt('Admin jelszó:');if(pw!==CHAT_RESET_PASSWORD){if(pw!==null)alert('Hibás jelszó!');return;}localStorage.removeItem('audienceMessageCount50M');localStorage.removeItem('lastAudienceMsg');if(bc)bc.postMessage({type:'chatReset'});updateAudienceStatus();alert('Chat limit resetelve! Újra lehet üzenetet küldeni.');}
+  window.adminResetChat=function(){const pw=prompt('Admin jelszó:');if(pw!==CHAT_RESET_PASSWORD){if(pw!==null)alert('Hibás jelszó!');return;}localStorage.removeItem('audienceMessageCount50M');socket.emit('reset_chat');updateAudienceStatus();alert('Chat limit resetelve! Újra lehet üzenetet küldeni.');}
   function updateAudienceStatus(){const left=Math.max(0,AUDIENCE_LIMIT-getAudienceCount());const btn=document.getElementById('audSendBtn');const st=document.getElementById('audStatus');st.textContent=left>0?'Hátralévő üzenetek: '+left+' / '+AUDIENCE_LIMIT:'Elküldted mind a 10 üzenetedet.';btn.disabled=left<=0;}
   window.audSend=function(){const n=document.getElementById('audName').value.trim();const t=document.getElementById('audText').value.trim();if(!t)return alert('Írj be egy üzenetet!');const res=sendChat(n,t);if(!res.ok){updateAudienceStatus();return alert(res.reason==='limit'?'Már elküldted a 10 üzenetedet, többet nem küldhetsz.':'Erre a kérdésre már válaszoltak, most nem lehet üzenetet küldeni.');}document.getElementById('audText').value='';updateAudienceStatus();showToast('Elküldve a műsor falára!')}
   window.addEventListener('storage',e=>{if(e.key==='gameState50M')updateAudienceStatus()});updateAudienceStatus();
 }else{
 app.innerHTML=`<div class="main"><div class="left panel"><h1>CHAT FAL</h1><div id="chatWall"></div></div><div class="center panel"><div class="logo"><div>50 Milliós<br><span>Játszma</span></div></div><div class="question" id="question">Kérdés</div><div class="answers">${[0,1,2,3].map(i=>`<div class="answer"><h2></h2><div class="cash"></div><div class="amount">0M</div><div class="ctrl"><button onclick="add(${i})">+</button><button onclick="sub(${i})">-</button></div></div>`).join('')}</div><button class="okBtn" onclick="check()">OKÉ</button></div><div class="right panel"><h2 class="sideTitle">KÖRÖK</h2><div id="list"></div><div class="balance"><div class="bankLabel">MARADÉK PÉNZ</div><div class="money">💵</div><div id="bank">50M</div></div><div class="circle"><div class="part" onclick="half()">✂️</div><div class="part" onclick="phone()">📞</div><div class="part" onclick="chicken()">🐔</div><div class="part" onclick="audience()">💬</div></div></div></div><button class="adminResetBtn" title="Admin reset" onclick="adminResetChat()">•</button>`;
-window.adminResetChat=function(){const pw=prompt('Admin jelszó:');if(pw!==CHAT_RESET_PASSWORD){if(pw!==null)alert('Hibás jelszó!');return;}localStorage.removeItem('audienceMessageCount50M');localStorage.removeItem('lastAudienceMsg');seenMessages.clear();const wall=document.getElementById('chatWall');if(wall)wall.innerHTML='';if(bc)bc.postMessage({type:'chatReset'});showToast('Chat resetelve - újra lehet üzenetet küldeni!')}
+window.adminResetChat=function(){const pw=prompt('Admin jelszó:');if(pw!==CHAT_RESET_PASSWORD){if(pw!==null)alert('Hibás jelszó!');return;}localStorage.removeItem('audienceMessageCount50M');seenMessages.clear();const wall=document.getElementById('chatWall');if(wall)wall.innerHTML='';socket.emit('reset_chat');showToast('Chat resetelve - újra lehet üzenetet küldeni!')}
 let current=0,bank=50,placed=[0,0,0,0],checking=false,results=[],chickenIndex=null,gameEnded=false;
 let usedHelp={half:false,phone:false,chicken:false,audience:false};
 const questions=[
@@ -563,7 +565,7 @@ function showEndOverlay(won){
   document.body.appendChild(overlay);
   if(won){ winnerMoneyParty(); setTimeout(winnerFireworks,1200); }
 }
-window.restartGame=function(){localStorage.removeItem('audienceMessageCount50M');current=0;bank=50;placed=[0,0,0,0];checking=false;gameEnded=false;results=[];chickenIndex=null;usedHelp={half:false,phone:false,chicken:false,audience:false};partEls().forEach(p=>p.classList.remove('used'));const overlay=document.querySelector('.endOverlay');if(overlay)overlay.remove();setGameState({chatLocked:false,gameEnded:false,currentQuestion:0});load()}
+window.restartGame=function(){localStorage.removeItem('audienceMessageCount50M');current=0;bank=50;placed=[0,0,0,0];checking=false;gameEnded=false;results=[];chickenIndex=null;usedHelp={half:false,phone:false,chicken:false,audience:false};partEls().forEach(p=>p.classList.remove('used'));const overlay=document.querySelector('.endOverlay');if(overlay)overlay.remove();setGameState({chatLocked:false,gameEnded:false,currentQuestion:0}); socket.emit('reset_chat'); load()}
 function markHelpUsed(name,index){usedHelp[name]=true;partEls()[index].classList.add('used')}
 window.half=function(){if(checking||usedHelp.half)return;markHelpUsed('half',0);let q=questions[current],removed=0;answerEls().forEach((a,i)=>{if(i!==q.correct&&removed<2){a.classList.add('hiddenAnswer');removed++}});showToast('Felezés aktiválva - egyszer használható')}
 window.phone=function(){if(checking||usedHelp.phone)return;markHelpUsed('phone',1);showToast('Telefon: szerintem '+questions[current].a[questions[current].correct]+' a jó válasz')}
@@ -572,7 +574,7 @@ window.audience=function(){
 if(checking||usedHelp.audience)return;
 markHelpUsed('audience',3);
 
-const link='https://shirelix.github.io/kozonsegfal/';
+const link = window.location.origin + '/kozonseg_chat.html';
 
 navigator.clipboard?.writeText(link);
 
@@ -580,18 +582,22 @@ showToast('Közönség link kimásolva!');
 }
 function addMsg(msg){if(!msg)return;if(msg.id&&seenMessages.has(msg.id))return;if(msg.id)seenMessages.add(msg.id);const wall=document.getElementById('chatWall');const div=document.createElement('div');div.className='msg';div.innerHTML=`<b>${escapeHtml(msg.name||'Néző')}</b><p>${escapeHtml(msg.text||'')}</p><small>${msg.time||''}</small>`;wall.prepend(div);while(wall.children.length>35)wall.lastChild.remove()}
 function escapeHtml(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-if(bc)bc.onmessage=e=>{if(e.data?.type==='chat')addMsg(e.data.msg);if(e.data?.type==='chatReset'){seenMessages.clear();const wall=document.getElementById('chatWall');if(wall)wall.innerHTML='';showToast('Chat resetelve')}};window.addEventListener('storage',e=>{if(e.key==='lastAudienceMsg'&&e.newValue)addMsg(JSON.parse(e.newValue));if(e.key==='audienceMessageCount50M'&&e.newValue===null){seenMessages.clear();const wall=document.getElementById('chatWall');if(wall)wall.innerHTML='';}});addMsg({name:'Műsorvezető',text:'Élő adás indul! A közönség chathez nyomd meg a 💬 segítséget, és nyisd meg a kapott oldalt.',time:'LIVE'});load();
+
+socket.on('receive_message', (msg) => { addMsg(msg); });
+socket.on('init_messages', (messages) => {
+  messages.forEach(m => addMsg(m));
+});
+socket.on('chat_reset', () => {
+  seenMessages.clear();
+  const wall=document.getElementById('chatWall');
+  if(wall)wall.innerHTML='';
+  showToast('Chat resetelve az admin által!');
+});
+
+addMsg({name:'Műsorvezető',text:'Élő adás indul! A közönség chathez nyomd meg a 💬 segítséget, és nyisd meg a kapott oldalt.',time:'LIVE'});
+socket.emit('reset_chat'); // F5 esetén törli az eddigi chatet (csak a főoldalon)
+load();
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
